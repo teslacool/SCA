@@ -512,7 +512,7 @@ class TransformerEncoderModified(FairseqEncoder):
             self.layer_norm = LayerNorm(embed_dim)
         self.tradeoff = args.tradeoff
 
-    def forward(self, src_tokens, lm_output, src_lengths):
+    def forward(self, src_tokens, src_tokens_lm, src_lengths):
         """
         Args:
             src_tokens (LongTensor): tokens in the source language of shape
@@ -532,12 +532,12 @@ class TransformerEncoderModified(FairseqEncoder):
         if not encoder_padding_mask.any():
             encoder_padding_mask = None
 
-        if lm_output is not None and self.training:
+        if src_tokens_lm is not None and self.training:
             x = self.identityemb(src_tokens)
             if encoder_padding_mask is not None:
-                x = (x + self.tradeoff * lm_output.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + self.tradeoff)
+                x = (x + self.tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + self.tradeoff)
             else:
-                x = (x + self.tradeoff * lm_output) / (1 + self.tradeoff)
+                x = (x + self.tradeoff * src_tokens_lm) / (1 + self.tradeoff)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:

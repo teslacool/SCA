@@ -26,7 +26,7 @@ def get_training_parser(default_task='translation'):
     return parser
 
 
-def get_generation_parser(interactive=False, default_task='translation'):
+def get_generation_parser(interactive=False, default_task='lm_translation'):
     parser = get_parser('Generation', default_task)
     add_dataset_args(parser, gen=True)
     add_generation_args(parser)
