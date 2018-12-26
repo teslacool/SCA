@@ -10,6 +10,7 @@ Train a new model on one or across multiple GPUs.
 """
 
 import collections
+from collections import OrderedDict
 import itertools
 import os
 import math
@@ -73,10 +74,14 @@ def main(args):
         num_shards=args.distributed_world_size,
         shard_id=args.distributed_rank,
     )
-
+    if args.load_lm:
+        load_lm_state(args, model)
+    for param in model.lmdecoder.parameters():
+        param.requires_grad = False
     # Load the latest checkpoint if one is available
     if not load_checkpoint(args, trainer, epoch_itr):
         trainer.dummy_train_step([dummy_batch])
+
 
     # Train until the learning rate gets too small
     max_epoch = args.max_epoch or math.inf
@@ -181,6 +186,7 @@ def get_training_stats(trainer):
     stats['bsz'] = round(trainer.get_meter('bsz').avg)
     stats['num_updates'] = trainer.get_num_updates()
     stats['lr'] = trainer.get_lr()
+    stats['tradeoff'] = trainer.get_tradeoff()
     stats['gnorm'] = '{:.3f}'.format(trainer.get_meter('gnorm').avg)
     stats['clip'] = '{:.0%}'.format(trainer.get_meter('clip').avg)
     stats['oom'] = trainer.get_meter('oom').avg
@@ -342,6 +348,38 @@ def load_dataset_splits(task, splits):
                     if k > 0:
                         break
                     raise e
+
+def load_lm_state(args, model):
+    os.makedirs(args.save_dir, exist_ok=True)
+    checkpoint_path = os.path.join(args.save_dir, args.load_lm_file)
+    if os.path.isfile(checkpoint_path):
+        from torch.serialization import default_restore_location
+        state = torch.load(checkpoint_path, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+        def upgrade(obj):
+            if isinstance(obj, OrderedDict):
+                oldkeys = list(obj.keys())
+                for k in oldkeys:
+                    if k.startswith('decoder') and k != 'decoder':
+                        newkey = k.split('.', 1)[1]
+                    else:
+                        newkey = k
+                    obj[newkey] = upgrade(obj[k])
+                    if k.startswith('decoder'):
+                        del obj[k]
+            else:
+                return obj
+        # state = _upgrade_state_dict(state)
+        # model.upgrade_state_dict(state['model'])
+        upgrade(state['model'])
+        # upgrade(state['model']._metadata)
+    # load model parameters
+        try:
+            model.lmdecoder.load_state_dict(state['model'], strict=True)
+        except Exception:
+            raise Exception('Cannot load model parameters from language model checkpoint, '
+                            'please ensure that the architectures match')
+        return True
+    return False
 
 
 if __name__ == '__main__':

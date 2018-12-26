@@ -43,7 +43,7 @@ class Trainer(object):
             self._model = model.half().cuda()
         else:
             self._model = model.cuda()
-
+        self.lm_scheduler = LmOutSchedule(args, model.encoder)
         self._dummy_batch = dummy_batch
         self._oom_batch = oom_batch
         self._num_updates = 0
@@ -244,7 +244,7 @@ class Trainer(object):
 
             # update learning rate
             self.lr_scheduler.step_update(self._num_updates)
-
+            self.lm_scheduler.step_update(self._num_updates)
             # update meters
             ntokens = logging_output.get('ntokens', 0)
             nsentences = logging_output.get('nsentences', 0)
@@ -359,6 +359,9 @@ class Trainer(object):
         """Get the current learning rate."""
         return self.optimizer.get_lr()
 
+    def get_tradeoff(self):
+        return  self.lm_scheduler.tradeoff
+
     def get_model(self):
         """Get the (non-wrapped) model instance."""
         return self._model
@@ -377,3 +380,32 @@ class Trainer(object):
         if sample is None or len(sample) == 0:
             return None
         return utils.move_to_cuda(sample)
+
+class LmOutSchedule(object):
+
+    def __init__(self, args, encoder):
+        warmup_init_tradeoff = args.tradeoff
+        warmup_end_tradeoff = args.tradeoff
+        # linearly warmup for the first args.warmup_updates
+        self.lr_step = (warmup_end_tradeoff - warmup_init_tradeoff) / args.tradeoff_step
+        self.warmup_init_tradeoff = warmup_init_tradeoff
+        # then, decay prop. to the inverse square root of the update number
+        self.decay_factor = warmup_end_tradeoff * args.tradeoff_step**0.5
+        self.tradeoff_step = args.tradeoff_step
+
+        # initial learning rate
+        self.tradeoff = warmup_init_tradeoff
+        self.encoder = encoder
+        self.set_tradeoff()
+
+    def set_tradeoff(self):
+        self.encoder.tradeoff = self.tradeoff
+
+    def step_update(self, num_updates):
+        """Update the learning rate after each update."""
+        if num_updates <= self.tradeoff_step:
+            self.tradeoff = self.warmup_init_tradeoff + self.lr_step * num_updates
+        else:
+            self.tradeoff = self.decay_factor * num_updates**-0.5
+        self.set_tradeoff()
+        return self.tradeoff

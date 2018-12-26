@@ -297,3 +297,28 @@ class FairseqLanguageModel(BaseFairseqModel):
     def remove_head(self):
         """Removes the head of the model (e.g. the softmax layer) to conserve space when it is not needed"""
         raise NotImplementedError()
+
+class FairseqLMNMT(BaseFairseqModel):
+    '''
+    Base class for combination of language model and nmt model.
+    '''
+
+    def __init__(self, lmdecoder, nmtencoder, nmtdecoder):
+        super().__init__()
+        self.lmdecoder = lmdecoder
+        self.encoder = nmtencoder
+        self.decoder = nmtdecoder
+
+    def forward(self, src_tokens_lm, src_tokens, src_lengths, prev_output_tokens):
+        lmoutput, _ = self.lmdecoder(src_tokens_lm)
+        lmoutput = F.softmax(lmoutput, dim=-1)
+        encoder_out = self.encoder(src_tokens, lmoutput, src_lengths)
+        decoder_out = self.decoder(prev_output_tokens, encoder_out)
+        return decoder_out
+
+
+    def max_positions(self):
+        return (self.encoder.max_positions(), self.decoder.max_positions())
+
+
+
