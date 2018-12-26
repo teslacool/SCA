@@ -94,7 +94,7 @@ class LMTranslationTask(FairseqTask):
         assert src_dict.eos() == tgt_dict.eos()
         assert src_dict.unk() == tgt_dict.unk()
 
-        task = TranslationTask(args, src_dict, tgt_dict)
+        task = LMTranslationTask(args, src_dict, tgt_dict)
         model = task.build_model(args)
         model.upgrade_state_dict(state_dict)
         model.load_state_dict(state_dict, strict=True)
