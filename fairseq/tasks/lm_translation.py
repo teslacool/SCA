@@ -79,8 +79,6 @@ class LMTranslationTask(FairseqTask):
                             help='include past target')
         parser.add_argument('--load-lm', action='store_true',)
         parser.add_argument('--load-lm-file', type=str, default='checkpoint_lm.pt')
-        parser.add_argument('--tradeoff', type=float, default=1.)
-        parser.add_argument('--tradeoff-step', type=int, default=4000)
 
     @staticmethod
     def load_pretrained_model(path, src_dict_path, tgt_dict_path, arg_overrides=None):

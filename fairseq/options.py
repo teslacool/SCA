@@ -14,7 +14,7 @@ from fairseq.models import ARCH_MODEL_REGISTRY, ARCH_CONFIG_REGISTRY
 from fairseq.optim import OPTIMIZER_REGISTRY
 from fairseq.optim.lr_scheduler import LR_SCHEDULER_REGISTRY
 from fairseq.tasks import TASK_REGISTRY
-
+from fairseq.lmoutschedule import LMOUTSCHEDULE_REGISTRY
 
 def get_training_parser(default_task='translation'):
     parser = get_parser('Trainer', default_task)
@@ -23,6 +23,7 @@ def get_training_parser(default_task='translation'):
     add_model_args(parser)
     add_optimization_args(parser)
     add_checkpoint_args(parser)
+    add_lm_parser(parser)
     return parser
 
 
@@ -92,6 +93,8 @@ def parse_args_and_arch(parser, input_args=None, parse_known=False):
         LR_SCHEDULER_REGISTRY[args.lr_scheduler].add_args(parser)
     if hasattr(args, 'task'):
         TASK_REGISTRY[args.task].add_args(parser)
+    if hasattr(args, 'lmoutschedule'):
+        LMOUTSCHEDULE_REGISTRY[args.lmoutschedule].add_args(parser)
 
     # Parse a second time.
     if parse_known:
@@ -173,6 +176,10 @@ def add_dataset_args(parser, train=False, gen=False):
     # fmt: on
     return group
 
+
+def add_lm_parser(parser):
+    group = parser.add_argument_group('lmnmt')
+    group.add_argument('--lmoutschedule', type=str, default='linear')
 
 def add_distributed_training_args(parser):
     group = parser.add_argument_group('Distributed training')
@@ -376,5 +383,6 @@ def add_model_args(parser):
     group.add_argument('--criterion', default='cross_entropy', metavar='CRIT',
                        choices=CRITERION_REGISTRY.keys(),
                        help='Training Criterion')
+
     # fmt: on
     return group
