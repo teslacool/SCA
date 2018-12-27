@@ -390,7 +390,7 @@ class LmOutSchedule(object):
         self.lr_step = (warmup_end_tradeoff - warmup_init_tradeoff) / args.tradeoff_step
         self.warmup_init_tradeoff = warmup_init_tradeoff
         # then, decay prop. to the inverse square root of the update number
-        self.decay_factor = warmup_end_tradeoff * args.tradeoff_step**0.5
+        self.decay_factor = warmup_end_tradeoff * args.tradeoff_step
         self.tradeoff_step = args.tradeoff_step
 
         # initial learning rate
@@ -406,6 +406,6 @@ class LmOutSchedule(object):
         if num_updates <= self.tradeoff_step:
             self.tradeoff = self.warmup_init_tradeoff + self.lr_step * num_updates
         else:
-            self.tradeoff = self.decay_factor * num_updates**-0.5
+            self.tradeoff = self.decay_factor / num_updates
         self.set_tradeoff()
         return self.tradeoff
