@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('dirpath', type=str, help='checkpoints path')
 parser.add_argument('start_step', type=int,  help='start step')
 parser.add_argument('data_path', type=str,  help='as the name implies')
+parser.add_argument('sleeptime', type=float, )
 params = parser.parse_args()
 dirpath = params.dirpath
 minim_step = params.start_step
@@ -49,5 +50,5 @@ while True:
             os.system(cmd)
             cmd = 'touch {}'.format(already_ckt)
             os.system(cmd)
-    time.sleep(60*60*3.11)
-    print('sleep')
+    print('sleep for {:03.1f} hours'.format(params.sleeptime))
+    time.sleep(60 * 60 * params.sleeptime)
