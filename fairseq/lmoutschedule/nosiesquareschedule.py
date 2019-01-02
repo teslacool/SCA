@@ -20,7 +20,7 @@ class NoiseSquareLmOutSchedule(object):
         self.tradeoff = warmup_init_tradeoff
         self.encoder = encoder
         self.sigma = args.sigma
-        self.tradeoff = np.clip(np.random.normal(self.tradeoff, self.sigma), 0., 1.)
+        self.tradeoff = np.clip(np.random.normal(self.tradeoff, self.sigma), 0., 1.).astype(np.float32)
         self.set_tradeoff()
 
     @staticmethod
@@ -38,6 +38,6 @@ class NoiseSquareLmOutSchedule(object):
             self.tradeoff = self.warmup_init_tradeoff + self.lr_step * num_updates
         else:
             self.tradeoff = self.decay_factor * num_updates ** -2.
-        self.tradeoff = np.clip(np.random.normal(self.tradeoff, self.sigma), 0., 1.)
+        self.tradeoff = np.clip(np.random.normal(self.tradeoff, self.sigma), 0., 1.).astype(np.float32)
         self.set_tradeoff()
         return self.tradeoff
