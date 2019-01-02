@@ -3,7 +3,7 @@ import numpy as np
 from fairseq import utils
 from . import register_lmoutschedule
 
-@register_lmoutschedule('suqare3sigma')
+@register_lmoutschedule('square3sigma')
 class Square3SigmaLmOutSchedule(object):
 
     def __init__(self, args, encoder):
