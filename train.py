@@ -76,7 +76,9 @@ def main(args):
     )
     if args.load_lm:
         load_lm_state(args, model)
-    for param in model.lmdecoder.parameters():
+    for param in model.srclmdecoder.parameters():
+        param.requires_grad = False
+    for param in model.tgtlmdecoder.parameters():
         param.requires_grad = False
     # Load the latest checkpoint if one is available
     if not load_checkpoint(args, trainer, epoch_itr):
@@ -351,7 +353,7 @@ def load_dataset_splits(task, splits):
 
 def load_lm_state(args, model):
     os.makedirs(args.save_dir, exist_ok=True)
-    checkpoint_path = os.path.join(args.save_dir, args.load_lm_file)
+    checkpoint_path = os.path.join(args.save_dir, args.load_srclm_file)
     if os.path.isfile(checkpoint_path):
         from torch.serialization import default_restore_location
         state = torch.load(checkpoint_path, map_location=lambda s, l: default_restore_location(s, 'cpu'))
@@ -374,9 +376,22 @@ def load_lm_state(args, model):
         # upgrade(state['model']._metadata)
     # load model parameters
         try:
-            model.lmdecoder.load_state_dict(state['model'], strict=True)
+            model.srclmdecoder.load_state_dict(state['model'], strict=True)
         except Exception:
-            raise Exception('Cannot load model parameters from language model checkpoint, '
+            raise Exception('Cannot load model parameters from source language model checkpoint, '
+                            'please ensure that the architectures match')
+        checkpoint_path = os.path.join(args.save_dir, args.load_tgtlm_file)
+        assert os.path.exists(checkpoint_path)
+        state = torch.load(checkpoint_path, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+        # state = _upgrade_state_dict(state)
+        # model.upgrade_state_dict(state['model'])
+        upgrade(state['model'])
+        # upgrade(state['model']._metadata)
+        # load model parameters
+        try:
+            model.tgtlmdecoder.load_state_dict(state['model'], strict=True)
+        except Exception:
+            raise Exception('Cannot load model parameters from target language model checkpoint, '
                             'please ensure that the architectures match')
         return True
     return False

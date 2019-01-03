@@ -13,8 +13,8 @@ LMOUTSCHEDULE_REGISTRY = {}
 LMOUTSCHEDULE_CLASS_NAMES = set()
 
 
-def build_lmoutschedule(args, encoder):
-    return LMOUTSCHEDULE_REGISTRY[args.lmoutschedule](args, encoder)
+def build_lmoutschedule(args, encoder, decoder):
+    return LMOUTSCHEDULE_REGISTRY[args.lmoutschedule](args, encoder, decoder)
 
 
 def register_lmoutschedule(name):

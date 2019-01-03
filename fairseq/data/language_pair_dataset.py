@@ -46,12 +46,13 @@ def collate(
         if input_feeding:
             # we create a shifted version of targets for feeding the
             # previous output token(s) into the next decoder step
-            prev_output_tokens = merge(
+            prev_output_tokens, prev_output_tokens_lm = merge(
                 'target',
                 left_pad=left_pad_target,
                 move_eos_to_beginning=True,
             )
             prev_output_tokens = prev_output_tokens.index_select(0, sort_order)
+            prev_output_tokens_lm =  prev_output_tokens_lm.index_select(0, sort_order)
     else:
         ntokens = sum(len(s['source']) for s in samples)
 
@@ -68,6 +69,7 @@ def collate(
     }
     if prev_output_tokens is not None:
         batch['net_input']['prev_output_tokens'] = prev_output_tokens
+        batch['net_input']['prev_output_tokens_lm'] = prev_output_tokens_lm
     return batch
 
 

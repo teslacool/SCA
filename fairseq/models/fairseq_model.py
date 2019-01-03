@@ -303,17 +303,20 @@ class FairseqLMNMT(BaseFairseqModel):
     Base class for combination of language model and nmt model.
     '''
 
-    def __init__(self, lmdecoder, nmtencoder, nmtdecoder):
+    def __init__(self, srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder):
         super().__init__()
-        self.lmdecoder = lmdecoder
+        self.srclmdecoder = srclmdecoder
+        self.tgtlmdecoder = tgtlmdecoder
         self.encoder = nmtencoder
         self.decoder = nmtdecoder
 
-    def forward(self, src_tokens_lm, src_tokens, src_lengths, prev_output_tokens):
-        lmoutput, _ = self.lmdecoder(src_tokens_lm)
-        lmoutput = F.softmax(lmoutput, dim=-1)
-        encoder_out = self.encoder(src_tokens, lmoutput, src_lengths)
-        decoder_out = self.decoder(prev_output_tokens, encoder_out)
+    def forward(self, src_tokens_lm, prev_output_tokens_lm, src_tokens, src_lengths, prev_output_tokens):
+        srclmoutput, _ = self.srclmdecoder(src_tokens_lm)
+        srclmoutput = F.softmax(srclmoutput, dim=-1)
+        tgtlmoutput, _ = self.tgtlmdecoder(prev_output_tokens_lm)
+        tgtlmoutput = F.softmax(tgtlmoutput, dim=-1)
+        encoder_out = self.encoder(src_tokens, srclmoutput, src_lengths)
+        decoder_out = self.decoder(prev_output_tokens, tgtlmoutput, encoder_out)
         return decoder_out
 
 

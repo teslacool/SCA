@@ -267,8 +267,8 @@ class TransformerLmNmt(FairseqLMNMT):
         :prog:
     """
 
-    def __init__(self, lmdecoder, nmtencoder, nmtdecoder):
-        super().__init__( lmdecoder, nmtencoder, nmtdecoder)
+    def __init__(self, srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder):
+        super().__init__( srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder)
 
     @staticmethod
     def add_args(parser):
@@ -420,7 +420,7 @@ class TransformerLmNmt(FairseqLMNMT):
             )
 
         encoder = TransformerEncoderModified(args, src_dict, encoder_embed_tokens)
-        decoder = TransformerDecoder(args, tgt_dict, decoder_embed_tokens)
+        decoder = TransformerDecoderModified(args, tgt_dict, decoder_embed_tokens)
 
         #LM
         if hasattr(args, 'lmno_tie_adaptive_proj') and args.lmno_tie_adaptive_proj == False:
@@ -443,7 +443,8 @@ class TransformerLmNmt(FairseqLMNMT):
                                          args.adaptive_input_factor, args.decoder_embed_dim,
                                          options.eval_str_list(args.adaptive_input_cutoff, type=int))
         else:
-            embed_tokens = Embedding(len(src_dict), args.lmdecoder_input_dim, src_dict.pad())
+            src_embed_tokens = Embedding(len(src_dict), args.lmdecoder_input_dim, src_dict.pad())
+            tgt_embed_tokens = Embedding(len(tgt_dict), args.lmdecoder_input_dim, tgt_dict.pad())
 
         if args.lmtie_adaptive_weights:
             assert args.lmadaptive_input
@@ -458,8 +459,9 @@ class TransformerLmNmt(FairseqLMNMT):
                     tgtargs.__setattr__(k[2:], v)
             return tgtargs
         newlmargs = prepare_lm_args(args)
-        lmdecoder = TransformerDecoder(newlmargs, task.source_dictionary, embed_tokens, no_encoder_attn=True, final_norm=False)
-        return cls( lmdecoder, encoder, decoder)
+        srclm_decoder = TransformerDecoder(newlmargs, task.source_dictionary, src_embed_tokens, no_encoder_attn=True, final_norm=False)
+        tgtlm_decoder = TransformerDecoder(newlmargs, task.target_dictionary, tgt_embed_tokens, no_encoder_attn=True, final_norm=False)
+        return cls( srclm_decoder, tgtlm_decoder, encoder, decoder)
 
 
 
@@ -602,6 +604,203 @@ class TransformerEncoderModified(FairseqEncoder):
             self.layer_norm = None
             self.normalize = False
             state_dict[version_key] = torch.Tensor([1])
+        return state_dict
+
+class TransformerDecoderModified(FairseqIncrementalDecoder):
+    """
+    Transformer decoder consisting of *args.decoder_layers* layers. Each layer
+    is a :class:`TransformerDecoderLayer`.
+
+    Args:
+        args (argparse.Namespace): parsed command-line arguments
+        dictionary (~fairseq.data.Dictionary): decoding dictionary
+        embed_tokens (torch.nn.Embedding): output embedding
+        no_encoder_attn (bool, optional): whether to attend to encoder outputs.
+            Default: ``False``
+        left_pad (bool, optional): whether the input is left-padded. Default:
+            ``False``
+    """
+
+    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False, left_pad=False, final_norm=True):
+        super().__init__(dictionary)
+        self.dropout = args.dropout
+        self.share_input_output_embed = args.share_decoder_input_output_embed
+
+        input_embed_dim = embed_tokens.embedding_dim
+        embed_dim = args.decoder_embed_dim
+        output_embed_dim = args.decoder_output_dim
+
+        padding_idx = embed_tokens.padding_idx
+        self.max_target_positions = args.max_target_positions
+
+        num_embeddings = len(dictionary)
+        self.identityemb = Embedding(num_embeddings,num_embeddings, padding_idx=None)
+        self.identityemb.weight.data = torch.eye(num_embeddings)
+        self.identityemb.weight.requires_grad = False
+
+        self.embed_tokens = embed_tokens
+        self.embed_scale = math.sqrt(embed_dim)  # todo: try with input_embed_dim
+
+        self.project_in_dim = Linear(input_embed_dim, embed_dim, bias=False) if embed_dim != input_embed_dim else None
+
+        self.embed_positions = PositionalEmbedding(
+            args.max_target_positions, embed_dim, padding_idx,
+            left_pad=left_pad,
+            learned=args.decoder_learned_pos,
+        ) if not args.no_token_positional_embeddings else None
+
+        self.layers = nn.ModuleList([])
+        self.layers.extend([
+            TransformerDecoderLayer(args, no_encoder_attn)
+            for _ in range(args.decoder_layers)
+        ])
+
+        self.adaptive_softmax = None
+
+        self.project_out_dim = Linear(embed_dim, output_embed_dim, bias=False) \
+            if embed_dim != output_embed_dim and not args.tie_adaptive_weights else None
+
+        if args.adaptive_softmax_cutoff is not None:
+            self.adaptive_softmax = AdaptiveSoftmax(
+                len(dictionary),
+                output_embed_dim,
+                options.eval_str_list(args.adaptive_softmax_cutoff, type=int),
+                dropout=args.adaptive_softmax_dropout,
+                adaptive_inputs=embed_tokens if args.tie_adaptive_weights else None,
+                factor=args.adaptive_softmax_factor,
+                tie_proj=args.tie_adaptive_proj,
+            )
+        elif not self.share_input_output_embed:
+            self.embed_out = nn.Parameter(torch.Tensor(len(dictionary), output_embed_dim))
+            nn.init.normal_(self.embed_out, mean=0, std=output_embed_dim ** -0.5)
+        self.register_buffer('version', torch.Tensor([2]))
+        self.normalize = args.decoder_normalize_before and final_norm
+        if self.normalize:
+            self.layer_norm = LayerNorm(embed_dim)
+        self.tradeoff = args.tradeoff
+
+    def forward(self, prev_output_tokens, prev_output_tokens_lm, encoder_out=None, incremental_state=None):
+        """
+        Args:
+            prev_output_tokens (LongTensor): previous decoder outputs of shape
+                `(batch, tgt_len)`, for input feeding/teacher forcing
+            encoder_out (Tensor, optional): output from the encoder, used for
+                encoder-side attention
+            incremental_state (dict): dictionary used for storing state during
+                :ref:`Incremental decoding`
+
+        Returns:
+            tuple:
+                - the last decoder layer's output of shape `(batch, tgt_len,
+                  vocab)`
+                - the last decoder layer's attention weights of shape `(batch,
+                  tgt_len, src_len)`
+        """
+        # embed positions
+
+        positions = self.embed_positions(
+            prev_output_tokens,
+            incremental_state=incremental_state,
+        ) if self.embed_positions is not None else None
+
+        if incremental_state is not None:
+            prev_output_tokens = prev_output_tokens[:, -1:]
+            if positions is not None:
+                positions = positions[:, -1:]
+
+        # embed tokens and positions
+
+        if prev_output_tokens_lm is not None and self.training:
+            x = self.identityemb(prev_output_tokens)
+            x = (x + self.tradeoff * prev_output_tokens_lm) / (1 + self.tradeoff)
+            x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
+            x = self.embed_scale * x
+        else:
+            x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+
+        if self.project_in_dim is not None:
+            x = self.project_in_dim(x)
+
+        if positions is not None:
+            x += positions
+        x = F.dropout(x, p=self.dropout, training=self.training)
+
+        # B x T x C -> T x B x C
+        x = x.transpose(0, 1)
+        attn = None
+
+        inner_states = [x]
+
+        # decoder layers
+        for layer in self.layers:
+            x, attn = layer(
+                x,
+                encoder_out['encoder_out'] if encoder_out is not None else None,
+                encoder_out['encoder_padding_mask'] if encoder_out is not None else None,
+                incremental_state,
+                self_attn_mask=self.buffered_future_mask(x) if incremental_state is None else None,
+            )
+            inner_states.append(x)
+
+        if self.normalize:
+            x = self.layer_norm(x)
+
+        # T x B x C -> B x T x C
+        x = x.transpose(0, 1)
+
+        if self.project_out_dim is not None:
+            x = self.project_out_dim(x)
+
+        if self.adaptive_softmax is None:
+            # project back to size of vocabulary
+            if self.share_input_output_embed:
+                x = F.linear(x, self.embed_tokens.weight)
+            else:
+                x = F.linear(x, self.embed_out)
+
+        return x, {'attn': attn, 'inner_states': inner_states}
+
+    def max_positions(self):
+        """Maximum output length supported by the decoder."""
+        if self.embed_positions is None:
+            return self.max_target_positions
+        return min(self.max_target_positions, self.embed_positions.max_positions())
+
+    def buffered_future_mask(self, tensor):
+        dim = tensor.size(0)
+        if not hasattr(self, '_future_mask') or self._future_mask is None or self._future_mask.device != tensor.device:
+            self._future_mask = torch.triu(utils.fill_with_neg_inf(tensor.new(dim, dim)), 1)
+        if self._future_mask.size(0) < dim:
+            self._future_mask = torch.triu(utils.fill_with_neg_inf(self._future_mask.resize_(dim, dim)), 1)
+        return self._future_mask[:dim, :dim]
+
+    def upgrade_state_dict_named(self, state_dict, name):
+        """Upgrade a (possibly old) state dict for new versions of fairseq."""
+        if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
+            weights_key = '{}.embed_positions.weights'.format(name)
+            if weights_key in state_dict:
+                del state_dict[weights_key]
+            state_dict['{}.embed_positions._float_tensor'.format(name)] = torch.FloatTensor(1)
+
+        for i in range(len(self.layers)):
+            # update layer norms
+            layer_norm_map = {
+                '0': 'self_attn_layer_norm',
+                '1': 'encoder_attn_layer_norm',
+                '2': 'final_layer_norm'
+            }
+            for old, new in layer_norm_map.items():
+                for m in ('weight', 'bias'):
+                    k = '{}.layers.{}.layer_norms.{}.{}'.format(name, i, old, m)
+                    if k in state_dict:
+                        state_dict['{}.layers.{}.{}.{}'.format(name, i, new, m)] = state_dict[k]
+                        del state_dict[k]
+        if utils.item(state_dict.get('{}.version'.format(name), torch.Tensor([1]))[0]) < 2:
+            # earlier checkpoints did not normalize after the stack of layers
+            self.layer_norm = None
+            self.normalize = False
+            state_dict['{}.version'.format(name)] = torch.Tensor([1])
+
         return state_dict
 
 class TransformerEncoder(FairseqEncoder):
@@ -1222,6 +1421,12 @@ def transformer_lm_big(args):
     args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 16)
     base_lm_architecture(args)
 
+@register_model_architecture('transformer_lm', 'transformer_lm_iwslt')
+def transformer_lm_iwslt(args):
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 512)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    base_lm_architecture(args)
 
 @register_model_architecture('transformer_lm', 'transformer_lm_wiki103')
 def transformer_lm_wiki103(args):
@@ -1276,6 +1481,11 @@ def transformer_iwslt_de_en(args):
     args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
     args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
     args.decoder_layers = getattr(args, 'decoder_layers', 6)
+
+    args.lmdecoder_embed_dim = getattr(args, 'lmdecoder_embed_dim', 512)
+    args.lmdecoder_ffn_embed_dim = getattr(args, 'lmdecoder_ffn_embed_dim', 1024)
+    args.lmdecoder_layers = getattr(args, 'lmdecoder_layers', 6)
+    args.lmdecoder_attention_heads = getattr(args, 'lmdecoder_attention_heads', 4)
     base_lmnmt_atchitecture(args)
 
 

@@ -6,7 +6,7 @@ from . import register_lmoutschedule
 @register_lmoutschedule('square3sigma')
 class Square3SigmaLmOutSchedule(object):
 
-    def __init__(self, args, encoder):
+    def __init__(self, args, encoder, decoder):
         warmup_init_tradeoff = args.tradeoff
         warmup_end_tradeoff = args.tradeoff
         # linearly warmup for the first args.warmup_updates
@@ -19,6 +19,7 @@ class Square3SigmaLmOutSchedule(object):
         # initial learning rate
         self.tradeoff = warmup_init_tradeoff
         self.encoder = encoder
+        self.decoder = decoder
         self.sigma = args.sigma
         self.tradeoff = float(np.clip(np.random.normal(self.tradeoff, self.tradeoff / 3 ), 0., 1.))
         self.set_tradeoff()
@@ -31,6 +32,7 @@ class Square3SigmaLmOutSchedule(object):
 
     def set_tradeoff(self):
         self.encoder.tradeoff = self.tradeoff
+        self.decoder.tradeoff = self.tradeoff
 
     def step_update(self, num_updates):
         """Update the learning rate after each update."""
