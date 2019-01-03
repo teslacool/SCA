@@ -82,7 +82,7 @@ class SequenceGenerator(object):
             # separately, but SequenceGenerator directly calls model.encoder
             encoder_input = {
                 k: v for k, v in input.items()
-                if k != 'prev_output_tokens'
+                if k not in ['prev_output_tokens', 'prev_output_tokens_lm']
             }
             srclen = encoder_input['src_tokens'].size(1)
             if timer is not None:
@@ -498,9 +498,9 @@ class SequenceGenerator(object):
     def _decode_one(self, tokens, model, encoder_out, incremental_states, log_probs):
         with torch.no_grad():
             if incremental_states[model] is not None:
-                decoder_out = list(model.decoder(tokens, encoder_out, incremental_state=incremental_states[model]))
+                decoder_out = list(model.decoder(tokens, None, encoder_out, incremental_state=incremental_states[model]))
             else:
-                decoder_out = list(model.decoder(tokens, encoder_out))
+                decoder_out = list(model.decoder(tokens, None, encoder_out))
             decoder_out[0] = decoder_out[0][:, -1, :]
             attn = decoder_out[1]
             if type(attn) is dict:
