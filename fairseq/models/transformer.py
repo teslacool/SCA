@@ -536,10 +536,11 @@ class TransformerEncoderModified(FairseqEncoder):
 
         if src_tokens_lm is not None and self.training:
             x = self.identityemb(src_tokens)
+            tradeoff = src_tokens_lm.new_empty(src_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
             if encoder_padding_mask is not None:
-                x = (x + self.tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + self.tradeoff)
+                x = (x + tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + self.tradeoff)
             else:
-                x = (x + self.tradeoff * src_tokens_lm) / (1 + self.tradeoff)
+                x = (x + tradeoff * src_tokens_lm) / (1 + self.tradeoff)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:
@@ -712,7 +713,8 @@ class TransformerDecoderModified(FairseqIncrementalDecoder):
 
         if prev_output_tokens_lm is not None and self.training:
             x = self.identityemb(prev_output_tokens)
-            x = (x + self.tradeoff * prev_output_tokens_lm) / (1 + self.tradeoff)
+            tradeoff = prev_output_tokens_lm.new_empty(prev_output_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
+            x = (x + tradeoff * prev_output_tokens_lm) / (1 + self.tradeoff)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:
@@ -1470,6 +1472,18 @@ def base_architecture(args):
     args.decoder_output_dim = getattr(args, 'decoder_output_dim', args.decoder_embed_dim)
     args.decoder_input_dim = getattr(args, 'decoder_input_dim', args.decoder_embed_dim)
 
+@register_model_architecture('transformer', 'transformer_small')
+def transformer_small(args):
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1024)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
+    args.encoder_layers = getattr(args, 'encoder_layers', 2)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    args.decoder_layers = getattr(args, 'decoder_layers', 2)
+    base_architecture(args)
+
 
 @register_model_architecture('transformer_lmnmt', 'transformer_iwslt_de_en')
 def transformer_iwslt_de_en(args):
@@ -1487,6 +1501,18 @@ def transformer_iwslt_de_en(args):
     args.lmdecoder_layers = getattr(args, 'lmdecoder_layers', 6)
     args.lmdecoder_attention_heads = getattr(args, 'lmdecoder_attention_heads', 4)
     base_lmnmt_atchitecture(args)
+
+@register_model_architecture('transformer_lmnmt', 'transformer_iwslt_de_en_small')
+def transformer_iwslt_de_en_small(args):
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 1024)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
+    args.encoder_layers = getattr(args, 'encoder_layers', 2)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 1024)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    args.decoder_layers = getattr(args, 'decoder_layers', 2)
+    transformer_iwslt_de_en(args)
 
 
 @register_model_architecture('transformer', 'transformer_wmt_en_de')

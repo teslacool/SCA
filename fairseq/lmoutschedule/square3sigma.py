@@ -21,7 +21,7 @@ class Square3SigmaLmOutSchedule(object):
         self.encoder = encoder
         self.decoder = decoder
         self.sigma = args.sigma
-        self.tradeoff = float(np.clip(np.random.normal(self.tradeoff, self.tradeoff / 3 ), 0., 1.))
+        self.tradeoff = float(np.clip(np.random.normal(self.tradeoff, self.tradeoff / 3 ), 0.1, 1.))
         self.set_tradeoff()
 
     @staticmethod
@@ -40,6 +40,6 @@ class Square3SigmaLmOutSchedule(object):
             self.tradeoff = self.warmup_init_tradeoff + self.lr_step * num_updates
         else:
             self.tradeoff = self.decay_factor * num_updates ** -2.
-        self.tradeoff = float(np.clip(np.random.normal(self.tradeoff, self.tradeoff / 3 ), 0., 1.))
+        self.tradeoff = float(np.clip(np.random.normal(self.tradeoff, self.tradeoff / 3 ), 0.1, 1.))
         self.set_tradeoff()
         return self.tradeoff
