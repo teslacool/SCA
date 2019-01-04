@@ -26,11 +26,13 @@ bleu_file = os.path.join(dirpath, 'bleu.txt')
 # flush_bleu_file(bleu_file)
 python_file = 'generate.py'
 grep_str = 'Generate test with beam'
+cnt = 0
 while True:
     checkpoints_file = os.listdir(dirpath)
     checkpoints_file.sort()
     # iterate each ckt file
     for ckt in checkpoints_file:
+        cnt = 0
         if ckt.startswith('checkpoint') and ckt.endswith('.pt'):
             step = ckt.split('.')[0][10:]
             if not step.isdigit():
@@ -52,3 +54,6 @@ while True:
             os.system(cmd)
     print('sleep for {:03.1f} hours'.format(params.sleeptime))
     time.sleep(60 * 60 * params.sleeptime)
+    cnt += 1
+    if cnt > 3:
+        break
