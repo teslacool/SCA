@@ -538,9 +538,9 @@ class TransformerEncoderModified(FairseqEncoder):
             x = self.identityemb(src_tokens)
             tradeoff = src_tokens_lm.new_empty(src_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
             if encoder_padding_mask is not None:
-                x = (x + tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + self.tradeoff)
+                x = (x + tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + tradeoff)
             else:
-                x = (x + tradeoff * src_tokens_lm) / (1 + self.tradeoff)
+                x = (x + tradeoff * src_tokens_lm) / (1 + tradeoff)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:
@@ -714,7 +714,7 @@ class TransformerDecoderModified(FairseqIncrementalDecoder):
         if prev_output_tokens_lm is not None and self.training:
             x = self.identityemb(prev_output_tokens)
             tradeoff = prev_output_tokens_lm.new_empty(prev_output_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
-            x = (x + tradeoff * prev_output_tokens_lm) / (1 + self.tradeoff)
+            x = (x + tradeoff * prev_output_tokens_lm) / (1 + tradeoff)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:
