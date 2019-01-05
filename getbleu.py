@@ -55,5 +55,5 @@ while True:
     print('sleep for {:03.1f} hours'.format(params.sleeptime))
     time.sleep(60 * 60 * params.sleeptime)
     cnt += 1
-    if cnt > 3:
+    if cnt > 2:
         break
