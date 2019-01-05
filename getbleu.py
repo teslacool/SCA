@@ -32,7 +32,6 @@ while True:
     checkpoints_file.sort()
     # iterate each ckt file
     for ckt in checkpoints_file:
-        cnt = 0
         if ckt.startswith('checkpoint') and ckt.endswith('.pt'):
             step = ckt.split('.')[0][10:]
             if not step.isdigit():
@@ -52,6 +51,7 @@ while True:
             os.system(cmd)
             cmd = 'touch {}'.format(already_ckt)
             os.system(cmd)
+            cnt = 0
     print('sleep for {:03.1f} hours'.format(params.sleeptime))
     time.sleep(60 * 60 * params.sleeptime)
     cnt += 1
