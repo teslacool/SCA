@@ -23,7 +23,7 @@ def get_training_parser(default_task='translation'):
     add_model_args(parser)
     add_optimization_args(parser)
     add_checkpoint_args(parser)
-    add_lm_parser(parser)
+    # add_lm_parser(parser)
     return parser
 
 

@@ -43,7 +43,7 @@ class Trainer(object):
             self._model = model.half().cuda()
         else:
             self._model = model.cuda()
-        self.lm_scheduler = lmoutschedule.build_lmoutschedule(args, self._model.encoder, self._model.decoder)
+        # self.lm_scheduler = lmoutschedule.build_lmoutschedule(args, self._model.encoder, self._model.decoder)
         self._dummy_batch = dummy_batch
         self._oom_batch = oom_batch
         self._num_updates = 0
@@ -244,7 +244,7 @@ class Trainer(object):
 
             # update learning rate
             self.lr_scheduler.step_update(self._num_updates)
-            self.lm_scheduler.step_update(self._num_updates)
+            # self.lm_scheduler.step_update(self._num_updates)
             # update meters
             ntokens = logging_output.get('ntokens', 0)
             nsentences = logging_output.get('nsentences', 0)

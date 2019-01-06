@@ -491,10 +491,7 @@ class TransformerEncoderModified(FairseqEncoder):
         embed_dim = embed_tokens.embedding_dim
         self.padding_idx = embed_tokens.padding_idx
         self.max_source_positions = args.max_source_positions
-        num_embeddings = len(dictionary)
-        self.identityemb = Embedding(num_embeddings,num_embeddings, padding_idx=None)
-        self.identityemb.weight.data = torch.eye(num_embeddings)
-        self.identityemb.weight.requires_grad = False
+
         self.embed_tokens = embed_tokens
         self.embed_scale = math.sqrt(embed_dim)
         self.embed_positions = PositionalEmbedding(
@@ -535,12 +532,20 @@ class TransformerEncoderModified(FairseqEncoder):
             encoder_padding_mask = None
 
         if src_tokens_lm is not None and self.training:
-            x = self.identityemb(src_tokens)
-            tradeoff = src_tokens_lm.new_empty(src_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
-            if encoder_padding_mask is not None:
-                x = (x + tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + tradeoff)
-            else:
-                x = (x + tradeoff * src_tokens_lm) / (1 + tradeoff)
+            # x = self.identityemb(src_tokens)
+            # tradeoff = src_tokens_lm.new_empty(src_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
+            # if encoder_padding_mask is not None:
+            #     x = (x + tradeoff * src_tokens_lm.masked_fill(encoder_padding_mask.unsqueeze(-1), 0.)) / (1 + tradeoff)
+            # else:
+            #     x = (x + tradeoff * src_tokens_lm) / (1 + tradeoff)
+            # x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
+            # x = self.embed_scale * x
+            x_onehot = src_tokens_lm.new_zeros(src_tokens_lm.shape)
+            x_onehot.scatter_(2, src_tokens.unsqueeze(-1), 1.)
+            random_select = src_tokens_lm.new_empty(src_tokens_lm.shape[:2]).uniform_(0, 1).unsqueeze(-1)
+            onehot_select = random_select.ge( self.tradeoff)
+            lm_select = 1 - onehot_select
+            x = x_onehot.masked_fill(lm_select, 0.) + src_tokens_lm.masked_fill(onehot_select, 0.)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:
@@ -634,11 +639,6 @@ class TransformerDecoderModified(FairseqIncrementalDecoder):
         padding_idx = embed_tokens.padding_idx
         self.max_target_positions = args.max_target_positions
 
-        num_embeddings = len(dictionary)
-        self.identityemb = Embedding(num_embeddings,num_embeddings, padding_idx=None)
-        self.identityemb.weight.data = torch.eye(num_embeddings)
-        self.identityemb.weight.requires_grad = False
-
         self.embed_tokens = embed_tokens
         self.embed_scale = math.sqrt(embed_dim)  # todo: try with input_embed_dim
 
@@ -712,9 +712,17 @@ class TransformerDecoderModified(FairseqIncrementalDecoder):
         # embed tokens and positions
 
         if prev_output_tokens_lm is not None and self.training:
-            x = self.identityemb(prev_output_tokens)
-            tradeoff = prev_output_tokens_lm.new_empty(prev_output_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
-            x = (x + tradeoff * prev_output_tokens_lm) / (1 + tradeoff)
+            # x = self.identityemb(prev_output_tokens)
+            # tradeoff = prev_output_tokens_lm.new_empty(prev_output_tokens_lm.shape[:2]).uniform_(0, self.tradeoff).unsqueeze(-1)
+            # x = (x + tradeoff * prev_output_tokens_lm) / (1 + tradeoff)
+            # x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
+            # x = self.embed_scale * x
+            x_onehot = prev_output_tokens_lm.new_zeros(prev_output_tokens_lm.shape)
+            x_onehot.scatter_(2, prev_output_tokens.unsqueeze(-1), 1.)
+            random_select = prev_output_tokens_lm.new_empty(prev_output_tokens_lm.shape[:2]).uniform_(0, 1).unsqueeze(-1)
+            onehot_select = random_select.ge(self.tradeoff)
+            lm_select = 1 - onehot_select
+            x = x_onehot.masked_fill(lm_select, 0.) + prev_output_tokens_lm.masked_fill(onehot_select, 0.)
             x = torch.nn.functional.linear(x, self.embed_tokens.weight.t())
             x = self.embed_scale * x
         else:

@@ -188,7 +188,7 @@ def get_training_stats(trainer):
     stats['bsz'] = round(trainer.get_meter('bsz').avg)
     stats['num_updates'] = trainer.get_num_updates()
     stats['lr'] = trainer.get_lr()
-    stats['tradeoff'] = trainer.get_tradeoff()
+    # stats['tradeoff'] = trainer.get_tradeoff()
     stats['gnorm'] = '{:.3f}'.format(trainer.get_meter('gnorm').avg)
     stats['clip'] = '{:.0%}'.format(trainer.get_meter('clip').avg)
     stats['oom'] = trainer.get_meter('oom').avg
