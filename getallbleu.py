@@ -19,7 +19,7 @@ def getmax(fn):
                     best = bleu
     return best
 
-tradeoffs = [0.0, 0.1, 0.05, 0.15, 0.2 ]
+tradeoffs = [0.0,0.05, 0.1, 0.15, 0.2 ]
 tradeoff_bleu = []
 for tradeoff in tradeoffs:
     fn = 'checkpoints/wmt14_en2de_{tradeoff}/bleu.txt'.format(tradeoff=tradeoff, )
