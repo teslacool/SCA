@@ -16,7 +16,7 @@ from fairseq.optim.lr_scheduler import LR_SCHEDULER_REGISTRY
 from fairseq.tasks import TASK_REGISTRY
 from fairseq.lmoutschedule import LMOUTSCHEDULE_REGISTRY
 
-def get_training_parser(default_task='translation'):
+def get_training_parser(default_task='lm_translation'):
     parser = get_parser('Trainer', default_task)
     add_dataset_args(parser, train=True)
     add_distributed_training_args(parser)

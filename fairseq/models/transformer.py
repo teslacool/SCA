@@ -267,8 +267,10 @@ class TransformerLmNmt(FairseqLMNMT):
         :prog:
     """
 
-    def __init__(self, srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder):
+    def __init__(self, srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder, args):
         super().__init__( srclmdecoder, tgtlmdecoder, nmtencoder, nmtdecoder)
+        self.src_no_lm = args.src_no_lm
+        self.tgt_no_lm = args.tgt_no_lm
 
     @staticmethod
     def add_args(parser):
@@ -461,7 +463,22 @@ class TransformerLmNmt(FairseqLMNMT):
         newlmargs = prepare_lm_args(args)
         srclm_decoder = TransformerDecoder(newlmargs, task.source_dictionary, src_embed_tokens, no_encoder_attn=True, final_norm=False)
         tgtlm_decoder = TransformerDecoder(newlmargs, task.target_dictionary, tgt_embed_tokens, no_encoder_attn=True, final_norm=False)
-        return cls( srclm_decoder, tgtlm_decoder, encoder, decoder)
+        return cls( srclm_decoder, tgtlm_decoder, encoder, decoder, args)
+
+    def forward(self, src_tokens_lm, prev_output_tokens_lm, src_tokens, src_lengths, prev_output_tokens):
+        if self.src_no_lm:
+            srclmoutput = None
+        else:
+            srclmoutput, _ = self.srclmdecoder(src_tokens_lm)
+            srclmoutput = F.softmax(srclmoutput, dim=-1)
+        if self.tgt_no_lm:
+            tgtlmoutput = None
+        else:
+            tgtlmoutput, _ = self.tgtlmdecoder(prev_output_tokens_lm)
+            tgtlmoutput = F.softmax(tgtlmoutput, dim=-1)
+        encoder_out = self.encoder(src_tokens, srclmoutput, src_lengths)
+        decoder_out = self.decoder(prev_output_tokens, tgtlmoutput, encoder_out)
+        return decoder_out
 
 
 
