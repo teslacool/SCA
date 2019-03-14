@@ -112,10 +112,10 @@ class Trainer(object):
                 self.lr_scheduler, self._num_updates, self._optim_history, extra_state,
             )
 
-    def load_checkpoint(self, filename, reset_optimizer=False, reset_lr_scheduler=False, optimizer_overrides=None):
+    def load_checkpoint(self, filename, reset_optimizer=False, reset_lr_scheduler=False, optimizer_overrides=None, strict=True):
         """Load all training state from a checkpoint file."""
         extra_state, self._optim_history, last_optim_state = \
-            utils.load_model_state(filename, self.get_model())
+            utils.load_model_state(filename, self.get_model(), strict)
         if last_optim_state is not None and not reset_optimizer:
             # rebuild optimizer after loading model, since params may have changed
             self._build_optimizer()

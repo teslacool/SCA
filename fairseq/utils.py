@@ -61,7 +61,7 @@ def save_state(filename, args, model, criterion, optimizer, lr_scheduler,
     torch_persistent_save(state_dict, filename)
 
 
-def load_model_state(filename, model):
+def load_model_state(filename, model, strict=True):
     if not os.path.exists(filename):
         return None, [], None
     state = torch.load(filename, map_location=lambda s, l: default_restore_location(s, 'cpu'))
@@ -70,7 +70,7 @@ def load_model_state(filename, model):
 
     # load model parameters
     try:
-        model.load_state_dict(state['model'], strict=True)
+        model.load_state_dict(state['model'], strict=strict)
     except Exception:
         raise Exception('Cannot load model parameters from checkpoint, '
                         'please ensure that the architectures match')

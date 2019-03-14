@@ -84,7 +84,6 @@ def main(args):
     if not load_checkpoint(args, trainer, epoch_itr):
         trainer.dummy_train_step([dummy_batch])
 
-
     # Train until the learning rate gets too small
     max_epoch = args.max_epoch or math.inf
     max_update = args.max_update or math.inf
@@ -93,6 +92,8 @@ def main(args):
     train_meter.start()
     valid_losses = [None]
     valid_subsets = args.valid_subset.split(',')
+    if args.load_nmt:
+        save_checkpoint(args, trainer, epoch_itr, valid_losses[0], nmt=True)
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         # train for one epoch
         train(args, trainer, task, epoch_itr)
@@ -271,11 +272,11 @@ def get_perplexity(loss):
         return float('inf')
 
 
-def save_checkpoint(args, trainer, epoch_itr, val_loss):
+def save_checkpoint(args, trainer, epoch_itr, val_loss, nmt=False):
     if args.no_save or not distributed_utils.is_master(args):
         return
     epoch = epoch_itr.epoch
-    end_of_epoch = epoch_itr.end_of_epoch()
+    end_of_epoch = epoch_itr.end_of_epoch() if not nmt else True
     updates = trainer.get_num_updates()
 
     checkpoint_conds = collections.OrderedDict()
@@ -319,9 +320,13 @@ def load_checkpoint(args, trainer, epoch_itr):
     """Load a checkpoint and replay dataloader to match."""
     os.makedirs(args.save_dir, exist_ok=True)
     checkpoint_path = os.path.join(args.save_dir, args.restore_file)
+    if args.load_nmt:
+        checkpoint_path = os.path.join(args.save_dir, args.load_nmt_file)
+        assert os.path.exists(checkpoint_path), 'You have specify --load-nmt flag, but there is no nmt model checkpoint.'
+        print("Notice that your model will load from a NMT ckt,\nIf you do not want it to happen, please cancel the --load-nmt flag")
     if os.path.isfile(checkpoint_path):
         extra_state = trainer.load_checkpoint(checkpoint_path, args.reset_optimizer, args.reset_lr_scheduler,
-                                              eval(args.optimizer_overrides))
+                                              eval(args.optimizer_overrides), strict=False if args.load_nmt else True)
         if extra_state is not None:
             # replay train iterator to match checkpoint
             epoch_itr.load_state_dict(extra_state['train_iterator'])
@@ -395,6 +400,18 @@ def load_lm_state(args, model):
                             'please ensure that the architectures match')
         return True
     return False
+
+def load_nmt_state(args, model):
+    checkpoint_path = os.path.join(args.save_dir, args.load_nmt_file)
+    if os.path.isfile(checkpoint_path):
+        from torch.serialization import default_restore_location
+        state = torch.load(checkpoint_path, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+        try:
+            model.load_state_dict(state['model'], strict=False)
+            print('Load nmt model successfully')
+        except Exception:
+            raise Exception('Cannot load model parameters from NMT model checkpoint, '
+                            'please ensure that the architectures match')
 
 
 if __name__ == '__main__':
