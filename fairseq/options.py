@@ -314,6 +314,7 @@ def add_generation_args(parser):
                        help='beam size')
     group.add_argument('--nbest', default=1, type=int, metavar='N',
                        help='number of hypotheses to output')
+    group.add_argument('--year', default=2018, type=int)
     group.add_argument('--max-len-a', default=0, type=float, metavar='N',
                        help=('generate sequences of maximum length ax + b, '
                              'where x is the source length'))

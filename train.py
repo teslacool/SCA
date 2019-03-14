@@ -322,7 +322,7 @@ def load_checkpoint(args, trainer, epoch_itr):
     checkpoint_path = os.path.join(args.save_dir, args.restore_file)
     if args.load_nmt:
         checkpoint_path = os.path.join(args.save_dir, args.load_nmt_file)
-        assert os.path.exists(checkpoint_path), 'You have specify --load-nmt flag, but there is no nmt model checkpoint.'
+        assert os.path.exists(checkpoint_path), 'You have specified --load-nmt flag, but there is no nmt model checkpoint.'
         print("Notice that your model will load from a NMT ckt,\nIf you do not want it to happen, please cancel the --load-nmt flag")
     if os.path.isfile(checkpoint_path):
         extra_state = trainer.load_checkpoint(checkpoint_path, args.reset_optimizer, args.reset_lr_scheduler,
