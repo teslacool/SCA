@@ -10,7 +10,8 @@ Translate pre-processed data with a trained model.
 """
 
 import torch
-
+import os
+import io
 from fairseq import bleu, data, options, progress_bar, tasks, tokenizer, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 from fairseq.sequence_generator import SequenceGenerator
@@ -91,6 +92,8 @@ def main(args):
     scorer = bleu.Scorer(tgt_dict.pad(), tgt_dict.eos(), tgt_dict.unk())
     num_sentences = 0
     has_target = True
+    generatesens = []
+    senids = []
     with progress_bar.build_progress_bar(args, itr) as t:
         if args.score_reference:
             translations = translator.score_batched_itr(t, cuda=use_cuda, timer=gen_timer)
@@ -115,10 +118,10 @@ def main(args):
                 if has_target:
                     target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
 
-            if not args.quiet:
-                print('S-{}\t{}'.format(sample_id, src_str))
-                if has_target:
-                    print('T-{}\t{}'.format(sample_id, target_str))
+            # if not args.quiet:
+            #     print('S-{}\t{}'.format(sample_id, src_str))
+            #     if has_target:
+            #         print('T-{}\t{}'.format(sample_id, target_str))
 
             # Process top predictions
             for i, hypo in enumerate(hypos[:min(len(hypos), args.nbest)]):
@@ -132,20 +135,23 @@ def main(args):
                 )
 
                 if not args.quiet:
-                    print('H-{}\t{}\t{}'.format(sample_id, hypo['score'], hypo_str))
-                    print('P-{}\t{}'.format(
-                        sample_id,
-                        ' '.join(map(
-                            lambda x: '{:.4f}'.format(x),
-                            hypo['positional_scores'].tolist(),
-                        ))
-                    ))
+                    # print('H-{}\t{}\t{}'.format(sample_id, hypo['score'], hypo_str))
+                    if i == 0:
+                        generatesens.append(hypo_str)
+                        senids.append(sample_id)
+                    # print('P-{}\t{}'.format(
+                    #     sample_id,
+                    #     ' '.join(map(
+                    #         lambda x: '{:.4f}'.format(x),
+                    #         hypo['positional_scores'].tolist(),
+                    #     ))
+                    # ))
 
-                    if args.print_alignment:
-                        print('A-{}\t{}'.format(
-                            sample_id,
-                            ' '.join(map(lambda x: str(utils.item(x)), alignment))
-                        ))
+                    # if args.print_alignment:
+                    #     print('A-{}\t{}'.format(
+                    #         sample_id,
+                    #         ' '.join(map(lambda x: str(utils.item(x)), alignment))
+                    #     ))
 
                 # Score only the top hypothesis
                 if has_target and i == 0:
@@ -159,10 +165,24 @@ def main(args):
             t.log({'wps': round(wps_meter.avg)})
             num_sentences += 1
 
-    print('| Translated {} sentences ({} tokens) in {:.1f}s ({:.2f} sentences/s, {:.2f} tokens/s)'.format(
-        num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))
-    if has_target:
-        print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.result_string()))
+    # print('| Translated {} sentences ({} tokens) in {:.1f}s ({:.2f} sentences/s, {:.2f} tokens/s)'.format(
+    #     num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))
+    # if has_target:
+    #     print('| Generate {} with beam={}: {}'.format(args.gen_subset, args.beam, scorer.result_string()))
+    generatesens = [x + '\n' for _, x in sorted(zip(senids, generatesens))]
+    with io.open('generatesen.txt', 'w', encoding='utf8', newline='\n') as tgt:
+        tgt.writelines(generatesens)
+    cmd = 'perl ../mosesdecoder/scripts/recaser/detruecase.perl < generatesen.txt > generatesen.txt.detc'
+    print(cmd)
+    os.system(cmd)
+    cmd = 'perl ../mosesdecoder/scripts/tokenizer/detokenizer.perl -l {} < generatesen.txt.detc > generatesen.txt.detc.detok'.format(
+        task.args.target_lang)
+    print(cmd)
+    os.system(cmd)
+    cmd = 'cat generatesen.txt.detc.detok | ../sockeye/sockeye_contrib/sacrebleu/sacrebleu.py -t wmt{} -l {}-{}'.format(
+        str(task.args.year)[2:], task.args.source_lang, task.args.target_lang)
+    print(cmd)
+    os.system(cmd)
 
 
 if __name__ == '__main__':
