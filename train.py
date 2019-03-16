@@ -360,6 +360,7 @@ def load_lm_state(args, model):
     os.makedirs(args.save_dir, exist_ok=True)
     checkpoint_path = os.path.join(args.save_dir, args.load_srclm_file)
     if os.path.isfile(checkpoint_path):
+        print('load language model...')
         from torch.serialization import default_restore_location
         state = torch.load(checkpoint_path, map_location=lambda s, l: default_restore_location(s, 'cpu'))
         def upgrade(obj):
