@@ -19,6 +19,8 @@ Our method is divided into two steps:
 Following standard fairseq data preprocessing, you will get binarized translation dataset.
 
 After that, you can copy dataset for language modeling in order to get **the same vocabulary** as NMT.
+
+**Because i have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should be no less than 2.**
 ```
 src=en
 tgt=ru
@@ -62,7 +64,8 @@ parser.add_argument('--tradeoff', type=float, default=0.1)
 ```
 1. `--load-lm` is the flag to decide whether to load language model.
 2. If you have specify `--load-lm` flag, you have place your two langage model checkpoints in `$SAVE/load-srclm-file(load-tgtlm-file)`
-3. `--load-nmt` is the flag to decide whether to load a NMT model for warmup (I have not verified that this method will work).
+3. `--tradeoff` is the probability to add noise (i usually set it 0.1, 0.15, 0.2).
+3. `--load-nmt` is the flag to decide whether to load a NMT model (only a nmt encoder and a decoder without language models) for warmup (I have not verified that this method will work, and i suggest you train your model from scratch).
 4. If you have specify `--load-nmt` flag, you should also specify PATH for NMT model (--load-nmt-file).
 
 An example of our script:
@@ -75,17 +78,17 @@ nvidia-smi
 
 src={src}
 tgt={tgt}
-DATA_PATH=/blob/v-jinhzh/data/bt02/warmnmtdata01/{src}2{tgt}
+DATA_PATH=/blob/v-jinhzh/data/bt02/coldnmtdata01/{src}2{tgt}
 python -c "import torch; print(torch.__version__)"
 
 TRADEOFF={tradeoff}
-SAVE_DIR=checkpoints/lmnmt_{src}2{tgt}_{tradeoff}_share
+SAVE_DIR=checkpoints/dataaug_{src}_{tgt}_{tradeoff}
 mkdir -p ${{SAVE_DIR}}
 chmod 777 ${{SAVE_DIR}}
 
-cp /blob/v-jinhzh/code/fairseq_baseline/checkpoints/lmof{src}share/checkpoint_last.pt ${{SAVE_DIR}}/checkpoint_src.pt
-cp /blob/v-jinhzh/code/fairseq_baseline/checkpoints/lmof{tgt}share/checkpoint_last.pt ${{SAVE_DIR}}/checkpoint_tgt.pt
-cp /blob/v-jinhzh/code/fairseq_baseline/checkpoints/bt02_warm_share_ru2en/checkpoint_32_180000.pt  ${{SAVE_DIR}}/checkpoint_nmt.pt
+cp /blob/v-jinhzh/code/fairseq_baseline/checkpoints/lmof{src}/checkpoint2.pt ${{SAVE_DIR}}/checkpoint_src.pt
+cp /blob/v-jinhzh/code/fairseq_baseline/checkpoints/lmof{tgt}/checkpoint2.pt ${{SAVE_DIR}}/checkpoint_tgt.pt
+
 
 
 echo SAVE_DIR ${{SAVE_DIR}}
@@ -93,19 +96,20 @@ echo TRADEOFF ${{TRADEOFF}}
 
 
 python train.py ${{DATA_PATH}} --task lm_translation \
---arch transformer_vaswani_wmt_en_de_big --share-all-embeddings \
+--arch transformer_vaswani_wmt_en_de_big --share-decoder-input-output-embed  \
 --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
 --lr-scheduler inverse_sqrt --warmup-init-lr 1e-07 --warmup-updates 4000 \
---lr 0.0005 --min-lr 1e-09 \
+--lr 0.0009 --min-lr 1e-09 \
 --dropout 0.3 --weight-decay 0.0 --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
 --max-tokens 2084 --update-freq 48 \
 --save-dir ${{SAVE_DIR}} \
---tradeoff ${{TRADEOFF}} --load-lm --load-nmt \
+--tradeoff ${{TRADEOFF}} --load-lm --save-interval-updates 1000  --seed 200 \
 ```
 
 I have modified the original `transformer_vaswani_wmt_en_de_big` arch config, and you have to
 specify language model arch according to your own language model if you have changed the above
 language model config.
+
 
 
 
