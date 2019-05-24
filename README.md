@@ -1,10 +1,11 @@
 # Introduction
-This is code for ACL 2019 short paper:
+This repository contains the code used for soft contextual data augmentation proposed in ACL 2019 short paper, Soft Contextual Data Augmentation for Neural Machine Translation, originally forked from
+[fairseq](https://github.com/pytorch/fairseq). If you use this code or our results in your research, we'd appreciate it if you cite our paper:
 ```
-@inproceedings{jinhua2019soft,
+@inproceedings{zhu2019soft,
   title={Soft Contextual Data Augmentation for Neural Machine Translation},
-  author={Zhu, Jinhua and Gao, Fei and Wu, Lijun and Qin, Tao and Zhou, Wengang and Cheng, Xueqi and Liu, Tie-Yan},
-  booktitle={Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics (ACL)},
+  author={Zhu, Jinhua and Gao, Fei and Wu, Lijun and Xia, Yingce and Qin, Tao and Zhou, Wengang and Cheng, Xueqi and Liu, Tie-Yan},
+  booktitle={ACL 2019},
   year={2019}
 }
 ```
@@ -20,15 +21,15 @@ python setup.py build develop
 # Getting Started
 Our method is divided into two steps:
 1. Train two language models for source language and target languae.
-2. Train NMT model with pretrained language models.
+2. Train NMT models with pretrained language models.
 
 ### Data prepeocessing
 
-Following standard fairseq data preprocessing, you will get binarized translation dataset.
+Following standard fairseq data preprocessing, you will get binarized translation datasets.
 
-After that, you can copy dataset for language modeling in order to get **the same vocabulary** as NMT.
+After that, you can copy datasets for language modeling in order to get **the same vocabulary** as NMT.
 
-**I have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should not be less than 2.**
+**Because I have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should be no less than 2.**
 ```
 src=en
 tgt=ru
@@ -46,7 +47,7 @@ done
 ```
 
 ### Training of language model
-I have modified this fairseq repo's dataloader, you'd better train language models with standard [fairseq](https://github.com/pytorch/fairseq) repo.
+Because I have modified this fairseq repo's dataloader, you'd better train language models with standard [fairseq](https://github.com/pytorch/fairseq) repo.
 
 An example of our script:
 ```
@@ -114,10 +115,9 @@ python train.py ${{DATA_PATH}} --task lm_translation \
 --tradeoff ${{TRADEOFF}} --load-lm --save-interval-updates 1000  --seed 200 \
 ```
 
-I have modified the original `transformer_vaswani_wmt_en_de_big` arch config. You need to
+I have modified the original `transformer_vaswani_wmt_en_de_big` arch config, and you have to
 specify language model arch according to your own language model if you have changed the above
 language model config.
-
 
 
 
