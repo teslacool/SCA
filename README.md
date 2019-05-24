@@ -28,7 +28,7 @@ Following standard fairseq data preprocessing, you will get binarized translatio
 
 After that, you can copy dataset for language modeling in order to get **the same vocabulary** as NMT.
 
-**Because i have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should be no less than 2.**
+**I have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should not be less than 2.**
 ```
 src=en
 tgt=ru
@@ -46,7 +46,7 @@ done
 ```
 
 ### Training of language model
-Because I have modified this fairseq repo's dataloader, you'd better train language models with standard [fairseq](https://github.com/pytorch/fairseq) repo.
+I have modified this fairseq repo's dataloader, you'd better train language models with standard [fairseq](https://github.com/pytorch/fairseq) repo.
 
 An example of our script:
 ```
@@ -114,7 +114,7 @@ python train.py ${{DATA_PATH}} --task lm_translation \
 --tradeoff ${{TRADEOFF}} --load-lm --save-interval-updates 1000  --seed 200 \
 ```
 
-I have modified the original `transformer_vaswani_wmt_en_de_big` arch config, and you have to
+I have modified the original `transformer_vaswani_wmt_en_de_big` arch config. You need to
 specify language model arch according to your own language model if you have changed the above
 language model config.
 
