@@ -1,5 +1,13 @@
 # Introduction
-This is the code for soft contextual data augmentation.
+This is code for ACL 2019 short paper:
+```
+@inproceedings{jinhua2019soft,
+  title={Soft Contextual Data Augmentation for Neural Machine Translation},
+  author={Zhu, Jinhua and Gao, Fei and Wu, Lijun and Qin, Tao and Zhou, Wengang and Cheng, Xueqi and Liu, Tie-Yan},
+  booktitle={Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics (ACL)},
+  year={2019}
+}
+```
 # Requirements and Installation
 * A [PyTorch installation](http://pytorch.org/)
 
