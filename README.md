@@ -29,7 +29,7 @@ Following standard fairseq data preprocessing, you will get binarized translatio
 
 After that, you can copy datasets for language modeling in order to get **the same vocabulary** as NMT.
 
-**I have to shift a sentence twice in decoder input, so the shortest sentence length after bpe should be no less than 2.**
+**I shift a sentence twice in decoder input, so the shortest sentence length after bpe should be no less than 2.**
 ```
 src=en
 tgt=ru
