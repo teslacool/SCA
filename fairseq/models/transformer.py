@@ -528,7 +528,7 @@ class TransformerEncoderModified(FairseqEncoder):
             self.layer_norm = LayerNorm(embed_dim)
         self.tradeoff = args.tradeoff
 
-    def forward(self, src_tokens, src_tokens_lm, src_lengths):
+    def forward(self, src_tokens, src_tokens_lm=None, src_lengths=None):
         """
         Args:
             src_tokens (LongTensor): tokens in the source language of shape
@@ -697,7 +697,7 @@ class TransformerDecoderModified(FairseqIncrementalDecoder):
             self.layer_norm = LayerNorm(embed_dim)
         self.tradeoff = args.tradeoff
 
-    def forward(self, prev_output_tokens, prev_output_tokens_lm, encoder_out=None, incremental_state=None):
+    def forward(self, prev_output_tokens, prev_output_tokens_lm=None, encoder_out=None, incremental_state=None):
         """
         Args:
             prev_output_tokens (LongTensor): previous decoder outputs of shape
