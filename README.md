@@ -1,6 +1,6 @@
 # Introduction
-This repository contains the code used for soft contextual data augmentation proposed in ACL 2019 short paper, [Soft Contextual Data Augmentation for Neural Machine Translation](https://arxiv.org/pdf/1905.10523.pdf), originally forked from
-[fairseq](https://github.com/pytorch/fairseq). If you use this code or our results in your research, we'd appreciate it if you cite our paper:
+This repository contains the code used for soft contextual data augmentation proposed in ACL 2019 short paper, [Soft Contextual Data Augmentation for Neural Machine Translation](https://arxiv.org/pdf/1905.10523.pdf). Our code is based on
+[fairseq](https://github.com/pytorch/fairseq). If you use this code or our results in your research, please cite the following paper:
 ```
 @inproceedings{zhu2019soft,
   title={Soft Contextual Data Augmentation for Neural Machine Translation},
@@ -9,6 +9,7 @@ This repository contains the code used for soft contextual data augmentation pro
   year={2019}
 }
 ```
+
 # Requirements and Installation
 * A [PyTorch installation](http://pytorch.org/)
 
