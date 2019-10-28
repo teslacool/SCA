@@ -21,7 +21,7 @@ python setup.py build develop
 
 # Getting Started
 Our method is divided into two steps:
-1. Train two language models for source language and target languae.
+1. Train two language models for source language and target language.
 2. Train NMT models with pretrained language models.
 
 ### Data prepeocessing
